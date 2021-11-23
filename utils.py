@@ -1,14 +1,20 @@
+import time
+from copy import deepcopy
 import numpy as np
+from numpy.core.numeric import count_nonzero
+
+from wincons import return_winners
+
 
 class Position():
-    def __init__(self, board = []) -> None:
-        self.width = 7
-        self.height = 6
-        self.nbMoves = 0
-        if board == []:
-            self.board = np.tile(0, (self.width, self.height))
-        else:
+    def __init__(self, board = None) -> None:
+        self.width: int = 7
+        self.height: int = 6
+        if board is not None:
             self.board = board
+        else:
+            self.board = np.tile(0, (self.width, self.height))
+        self.nbMoves = int(count_nonzero(board))
             
     def changeOver(self) -> None:
         """Changes the player who is in control. 
@@ -33,38 +39,58 @@ class Position():
         self.board[col][i] = 1
         self.nbMoves += 1
         self.changeOver()
-        
+    
     def isWinningMove(self, col: int) -> bool:
         """Checks whether playing in a column in a winning move.
+        Does this via a lookup in the wincons file and the set function.
+        Input: column index from 0 to width
+        Output: True is winning, False otherwise"""
+        matches = return_winners(col)
+        i=0
+        b2 = self.board
+        while self.board[col][i] != 0:
+            i += 1
+        self.board[col][i] = 1
+        for m in matches:
+            if set([self.board[m[i][0]][m[i][1]] for i in range(0,4)]) == {1}:
+                self.board[col][i] = 0
+                return True
+        self.board[col][i] = 0
+        return False
+    
+    def isWinningMove2(self, col: int) -> bool:
+        """Checks whether playing in a column in a winning move.
+        Does this by looking at any potential fours on the tile a piece is placed.
+        Seems to be faster when there are a large number of tests to do.
         Input: column index from 0 to width
         Output: True is winning, False otherwise"""
         
-            
-def negamax(P: Position) -> int:
-    """Recursivley solves connect4 via a min/max algorithm.
-    Input: Position class
-    Output: Integer score n. 
-        n = 0 -> draw
-        n = k > 0 -> player1 wins with nth to last stone.
-        n = k < 0 -> player2 wins with nth to last stone.
-    Note if player 1 has score n, player 2 has score -n"""
+        i=0
+        while self.board[col][i] != 0:
+            i += 1
+        self.board[col][i] = 1
+        b2 = np.pad(self.board, 3, mode='constant')
+        self.board[col][i] = 0
+        row = i + 3
+        col += 3
+        # Horizontally sloped cols
+        for i in range(-3,1):
+                if b2[col+i][row] + b2[col+i+1][row] + b2[col+i+2][row] + b2[col+i+3][row] == 4:
+                    return True
     
-    b = P.height*P.width
-    if P.nbMoves() == b:
-        return 0
+        # Check vertical locations for win
+        for i in range(-3,1):
+                if b2[col][row+i] + b2[col][row+i+1] + b2[col][row+i+2] + b2[col][row+i+3] == 4:
+                    return True
     
-    for i in range(0,P.width):
-        if P.canPlay(i) and P.isWinningMove(i):
-            return (b + 1 - P.nbMoves())/2
+        # Check positively sloped diaganols
+        for i in range(-3,1):
+                if b2[col+i][row+i] + b2[col+i+1][row+i+1] + b2[col+i+2][row+i+2] + b2[col+i+3][row+i+3] == 4:
+                    return True
     
-    bestScore = -b
+        # Check negatively sloped diaganols
+        for i in range(-3,1):
+                if b2[col-i][row+i] + b2[col-i-1][row+i+1] + b2[col-i-2][row+i+2] + b2[col-i-3][row+i+3] == 4:
+                    return True
 
-    for i in range(0, P.width):
-        if P.canPlay(i):
-            P2 = Position(board = P.board)
-            P2.play(i)
-            score = -negamax(P2)
-            if score > bestScore:
-                score = bestScore
-    
-    return bestScore
+        return False
